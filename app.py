@@ -14,32 +14,21 @@ def mm_to_px(mm):
 
 def get_font(size, bold=False):
     try:
-        if bold:
-            return ImageFont.truetype("assets/fonts/NotoSans-Bold.ttf", size)
-        return ImageFont.truetype("assets/fonts/NotoSans-Regular.ttf", size)
+        path = "assets/fonts/NotoSans-Bold.ttf" if bold else "assets/fonts/NotoSans-Regular.ttf"
+        return ImageFont.truetype(path, size)
     except:
-        return ImageFont.load_default()
+        return ImageFont.truetype("arial.ttf", size)
 
-def fit_text(draw, text, max_w, max_size, bold=False):
-    for size in range(max_size, 10, -1):
-        font = get_font(size, bold)
-        bbox = draw.textbbox((0,0), text, font=font)
-        if bbox[2] <= max_w:
-            return font
-    return get_font(12)
-
-# NEW: wrap text into multiple lines if too long
 def wrap_text(draw, text, font, max_w):
     words = text.split()
-    lines = []
-    current = ""
+    lines, current = [], ""
 
     for word in words:
-        test_line = current + (" " if current else "") + word
-        bbox = draw.textbbox((0,0), test_line, font=font)
+        test = current + (" " if current else "") + word
+        w = draw.textbbox((0,0), test, font=font)[2]
 
-        if bbox[2] <= max_w:
-            current = test_line
+        if w <= max_w:
+            current = test
         else:
             if current:
                 lines.append(current)
@@ -50,9 +39,23 @@ def wrap_text(draw, text, font, max_w):
 
     return lines
 
+def fit_and_wrap(draw, text, max_w, max_h, max_size, bold=False):
+    for size in range(max_size, 12, -1):
+        font = get_font(size, bold)
+        lines = wrap_text(draw, text, font, max_w)
+
+        line_h = int(size * 1.2)
+        total_h = line_h * len(lines)
+
+        if total_h <= max_h and len(lines) <= 2:
+            return font, lines, line_h
+
+    font = get_font(12, bold)
+    lines = wrap_text(draw, text, font, max_w)
+    return font, lines[:2], int(12*1.2)
+
 # ===== UI =====
 st.set_page_config(page_title="Card Creator", layout="centered")
-
 st.title("🎫 Card Creator")
 
 lang = st.selectbox("Language / Ngôn ngữ", ["English", "Tiếng Việt"])
@@ -65,7 +68,6 @@ level = st.text_input("Level / Chức vụ").strip()
 
 photo = st.file_uploader("Upload Photo", type=["jpg","png"])
 
-# ===== TEAM COLOR =====
 color = (200,0,0) if team == "Worker" else (0,102,153)
 
 def t(en, vi):
@@ -81,31 +83,39 @@ def create_card():
     card = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(card)
 
-    # Layout
     header_h = int(height * 0.15)
     footer_h = int(height * 0.08)
-    padding  = int(height * 0.03)
+    padding = int(height * 0.03)
 
+    # ===== HEADER =====
     draw.rectangle((0,0,width,header_h), fill=color)
 
-    # Logo + Title
     logo_w = 0
     try:
         logo = Image.open("logo.png").convert("RGBA")
-        logo.thumbnail((int(width*0.12), header_h-10))
-        card.paste(logo, (10,(header_h-logo.height)//2), logo)
-        logo_w = logo.width
+        logo.thumbnail((int(width*0.18), int(header_h*0.8)))
+        logo_y = (header_h - logo.height)//2
+        card.paste(logo, (10, logo_y), logo)
+        logo_w = logo.width + 15
     except:
         pass
 
-    font_header = get_font(int(header_h*0.4), True)
-    draw.text((logo_w+20, header_h//3), COMPANY_NAME, fill="white", font=font_header)
+    font_header = get_font(int(header_h*0.5), True)
 
-    # Content area
+    # auto fit company name
+    while True:
+        bbox = draw.textbbox((0,0), COMPANY_NAME, font=font_header)
+        if bbox[2] <= width - logo_w - 20:
+            break
+        font_header = get_font(font_header.size - 1, True)
+
+    text_y = (header_h - (bbox[3]-bbox[1]))//2
+    draw.text((logo_w + 10, text_y), COMPANY_NAME, fill="white", font=font_header)
+
+    # ===== CONTENT =====
     content_top = header_h + padding
     content_bottom = height - footer_h - padding
 
-    # ===== DỌC =====
     if is_vertical:
         photo_h = int((content_bottom - content_top) * 0.45)
 
@@ -115,75 +125,35 @@ def create_card():
             frame_w = int(width * 0.5)
             frame_h = photo_h
 
-            img_ratio = img.width / img.height
-            frame_ratio = frame_w / frame_h
-
-            if img_ratio > frame_ratio:
-                new_h = frame_h
-                new_w = int(img_ratio * new_h)
-            else:
-                new_w = frame_w
-                new_h = int(new_w / img_ratio)
-
-            img = img.resize((new_w, new_h))
-
-            left = (new_w - frame_w)//2
-            top = (new_h - frame_h)//2
-            img = img.crop((left, top, left+frame_w, top+frame_h))
-
+            img = img.resize((frame_w, frame_h))
             mask = Image.new("L", (frame_w, frame_h), 0)
-            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), radius=20, fill=255)
+            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), 20, fill=255)
 
             img_x = (width - frame_w)//2
-            img_y = content_top
-
-            card.paste(img, (img_x,img_y), mask)
+            card.paste(img, (img_x, content_top), mask)
 
         text_start_y = content_top + photo_h + padding
-
         label_x = int(width * 0.08)
         value_x = int(width * 0.38)
         max_text_width = width - value_x - padding
         line_h = int(height * 0.085)
 
-    # ===== NGANG =====
     else:
         content_h = content_bottom - content_top
-
         photo_w = int(width * 0.32)
-        text_area_x = photo_w + padding*2
 
         if photo:
             img = Image.open(photo).convert("RGB")
+            img = img.resize((photo_w, content_h))
 
-            frame_w = photo_w
-            frame_h = content_h
-
-            img_ratio = img.width / img.height
-            frame_ratio = frame_w / frame_h
-
-            if img_ratio > frame_ratio:
-                new_h = frame_h
-                new_w = int(img_ratio * new_h)
-            else:
-                new_w = frame_w
-                new_h = int(new_w / img_ratio)
-
-            img = img.resize((new_w, new_h))
-
-            left = (new_w - frame_w)//2
-            top = (new_h - frame_h)//2
-            img = img.crop((left, top, left+frame_w, top+frame_h))
-
-            mask = Image.new("L", (frame_w, frame_h), 0)
-            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), radius=20, fill=255)
+            mask = Image.new("L", (photo_w, content_h), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0,0,photo_w,content_h), 20, fill=255)
 
             card.paste(img, (padding, content_top), mask)
 
-        label_x = text_area_x
-        value_x = text_area_x + int(width * 0.12)
+        label_x = photo_w + padding*2
+        value_x = label_x + int(width * 0.12)
         max_text_width = width - value_x - padding
-
         line_h = int(content_h * 0.2)
         text_start_y = content_top + (content_h - line_h*4)//2
 
@@ -200,60 +170,35 @@ def create_card():
     for i,(label,value) in enumerate(data):
         y = text_start_y + i*line_h
 
-        # LABEL
         draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
 
-        # VALUE FONT SIZE
         if i < 2:
-            base_size = int(height*0.065)
-            is_bold = True
+            max_size = int(height*0.075)
+            bold = True
         else:
-            base_size = int(height*0.05)
-            is_bold = False
+            max_size = int(height*0.05)
+            bold = False
 
-        # AUTO FIT + WRAP + HEIGHT CONTROL
-        for size in range(base_size, 10, -1):
-            font_val = get_font(size, is_bold)
-
-            lines = wrap_text(draw, value, font_val, max_text_width)
-
-            # giới hạn tối đa 2 dòng
-            if len(lines) > 2:
-                continue
-
-            total_h = len(lines) * int(line_h*0.6)
-
-            # kiểm tra không tràn xuống dòng dưới
-            if total_h <= line_h:
-                break
-
-    # DRAW TEXT
-    for j, line in enumerate(lines[:2]):
-        draw.text(
-            (value_x, y + j*int(line_h*0.6)),
-            line,
-            fill="black",
-            font=font_val
+        font_val, lines, lh = fit_and_wrap(
+            draw, value, max_text_width, line_h, max_size, bold
         )
 
-        draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
+        for j, line in enumerate(lines):
+            draw.text((value_x, y + j*lh), line, fill="black", font=font_val)
 
-        if i < 2:
-            font_val = fit_text(draw, value, max_text_width, int(height*0.065), bold=True)
-        else:
-            font_val = fit_text(draw, value, max_text_width, int(height*0.05))
-
-        # wrap text if too long
-        lines = wrap_text(draw, value, font_val, max_text_width)
-
-        for j, line in enumerate(lines[:2]):  # limit max 2 lines to keep layout clean
-            draw.text((value_x, y + j*int(line_h*0.6)), line, fill="black", font=font_val)
-
-    # Footer
+    # ===== FOOTER =====
     draw.rectangle((0,height-footer_h,width,height), fill=color)
 
-    font_footer = fit_text(draw, COMPANY_ADDRESS, width-20, int(footer_h*0.4))
-    draw.text((10,height-footer_h+5), COMPANY_ADDRESS, fill="white", font=font_footer)
+    font_footer, lines, lh = fit_and_wrap(
+        draw,
+        COMPANY_ADDRESS,
+        width - 20,
+        footer_h,
+        int(footer_h*0.5)
+    )
+
+    for i, line in enumerate(lines):
+        draw.text((10, height-footer_h + i*lh), line, fill="white", font=font_footer)
 
     return card
 
@@ -272,10 +217,9 @@ def create_a4(cards):
     margin_x = (a4_w - cols*card_w)//(cols+1)
     margin_y = (a4_h - rows*card_h)//(rows+1)
 
-    x = margin_x
+    i = 0
     y = margin_y
 
-    i = 0
     for r in range(rows):
         x = margin_x
         for c in range(cols):
