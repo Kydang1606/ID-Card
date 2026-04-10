@@ -2,56 +2,116 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import io
 
-st.set_page_config(page_title="Employee Card", layout="centered")
+# ===== CONFIG =====
+st.set_page_config(page_title="Triac Employee Card", layout="centered")
 
-st.title("🎫 Employee Card Generator")
+COMPANY_NAME = "Triac Composites Co., LTD"
+COMPANY_ADDRESS = "Factory 4, Depot Saigon, No9, Nguyen Van Tao, Hiep Phuoc commune, HCMC"
 
-# ===== INPUT =====
-name = st.text_input("👤 Name")
-emp_id = st.text_input("🆔 Employee ID")
-team = st.text_input("🏢 Team")
-level = st.selectbox("🎯 Level", ["Công nhân", "Văn phòng"])
+# ===== UI =====
+st.markdown("## 🎫 Employee Card Generator")
+st.markdown("---")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    name = st.text_input("👤 Name")
+    emp_id = st.text_input("🆔 Employee ID")
+
+with col2:
+    team = st.text_input("🏢 Team")
+    level = st.selectbox("🎯 Level", ["Công nhân", "Văn phòng"])
+
+orientation = st.radio("📐 Orientation", ["Dọc", "Ngang"], horizontal=True)
 
 photo = st.file_uploader("📷 Upload Photo", type=["jpg", "png"])
 
 # ===== COLOR =====
-if level == "Công nhân":
-    color = (200, 30, 30)  # đỏ
-else:
-    color = (0, 120, 215)  # xanh
+color = (200, 30, 30) if level == "Công nhân" else (0, 120, 215)
 
-# ===== FUNCTION TẠO THẺ =====
+# ===== MM → PX =====
+def mm_to_px(mm, dpi=300):
+    return int(mm * dpi / 25.4)
+
+# ===== CREATE CARD =====
 def create_card():
-    width, height = 600, 350
+    is_vertical = orientation == "Dọc"
+
+    if is_vertical:
+        width = mm_to_px(60)
+        height = mm_to_px(100)
+    else:
+        width = mm_to_px(100)
+        height = mm_to_px(60)
+
     card = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(card)
 
-    # Header
-    draw.rectangle((0, 0, width, 60), fill=color)
-    draw.text((20, 15), "COMPANY NAME", fill="white")
+    header_h = int(height * 0.15)
+    footer_h = int(height * 0.12)
 
-    # Footer
-    draw.rectangle((0, height - 50, width, height), fill=color)
-    draw.text((20, height - 35), "company.com", fill="white")
+    # HEADER
+    draw.rectangle((0, 0, width, header_h), fill=color)
 
-    # Font
+    # FOOTER
+    draw.rectangle((0, height - footer_h, width, height), fill=color)
+
+    # FONT
     try:
-        font_big = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
-        font_small = ImageFont.truetype("DejaVuSans.ttf", 18)
+        font_name = ImageFont.truetype("DejaVuSans-Bold.ttf", int(height * 0.08))
+        font_id = ImageFont.truetype("DejaVuSans-Bold.ttf", int(height * 0.055))
+        font_small = ImageFont.truetype("DejaVuSans.ttf", int(height * 0.045))
     except:
-        font_big = ImageFont.load_default()
+        font_name = ImageFont.load_default()
+        font_id = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Text
-    draw.text((200, 120), name, fill="black", font=font_big)
-    draw.text((200, 160), f"ID: {emp_id}", fill="black", font=font_small)
-    draw.text((200, 200), f"{team} - {level}", fill="black", font=font_small)
+    # LOGO
+    try:
+        logo = Image.open("assets/logo.png").convert("RGBA")
+        logo.thumbnail((int(width * 0.2), header_h - 10))
+        card.paste(logo, (10, int((header_h - logo.height)/2)), logo)
+    except:
+        pass
 
-    # Photo (auto fit)
+    # COMPANY NAME
+    draw.text(
+        (int(width * 0.25), int(header_h / 3)),
+        COMPANY_NAME,
+        fill="white",
+        font=font_small
+    )
+
+    # FOOTER TEXT
+    draw.text(
+        (10, height - footer_h + 10),
+        COMPANY_ADDRESS,
+        fill="white",
+        font=font_small
+    )
+
+    # ===== LAYOUT =====
+    if is_vertical:
+        photo_x = 10
+        photo_y = header_h + 10
+        frame_w = int(width * 0.32)
+        frame_h = int(height * 0.35)
+
+        text_x = photo_x + frame_w + 15
+        text_y = photo_y
+    else:
+        photo_x = 10
+        photo_y = header_h + 10
+        frame_w = int(width * 0.28)
+        frame_h = int(height * 0.6)
+
+        text_x = photo_x + frame_w + 20
+        text_y = photo_y + 10
+
+    # ===== PHOTO =====
     if photo:
         img = Image.open(photo).convert("RGB")
 
-        frame_w, frame_h = 140, 180
         img_ratio = img.width / img.height
         frame_ratio = frame_w / frame_h
 
@@ -68,24 +128,33 @@ def create_card():
         top = (new_height - frame_h) // 2
         img = img.crop((left, top, left + frame_w, top + frame_h))
 
-        card.paste(img, (40, 100))
+        card.paste(img, (photo_x, photo_y))
+
+    # ===== TEXT =====
+    draw.text((text_x, text_y), name, fill="black", font=font_name)
+    draw.text((text_x, text_y + int(height * 0.12)), f"ID: {emp_id}", fill="black", font=font_id)
+    draw.text((text_x, text_y + int(height * 0.22)), f"{team} - {level}", fill="black", font=font_small)
 
     return card
 
 # ===== GENERATE =====
-if st.button("🚀 Generate Card"):
+st.markdown("---")
+
+if st.button("🚀 Generate Card", use_container_width=True):
     if name == "" or emp_id == "":
         st.warning("⚠️ Please fill Name and ID")
     else:
         card = create_card()
-        st.image(card, caption="Preview")
 
-        # Download
+        st.image(card, caption="Preview", use_container_width=True)
+
         buf = io.BytesIO()
         card.save(buf, format="PNG")
+
         st.download_button(
             label="⬇️ Download Card",
             data=buf.getvalue(),
             file_name=f"{name}_{emp_id}.png",
-            mime="image/png"
+            mime="image/png",
+            use_container_width=True
         )
