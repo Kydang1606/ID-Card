@@ -28,6 +28,28 @@ def fit_text(draw, text, max_w, max_size, bold=False):
             return font
     return get_font(12)
 
+# NEW: wrap text into multiple lines if too long
+def wrap_text(draw, text, font, max_w):
+    words = text.split()
+    lines = []
+    current = ""
+
+    for word in words:
+        test_line = current + (" " if current else "") + word
+        bbox = draw.textbbox((0,0), test_line, font=font)
+
+        if bbox[2] <= max_w:
+            current = test_line
+        else:
+            if current:
+                lines.append(current)
+            current = word
+
+    if current:
+        lines.append(current)
+
+    return lines
+
 # ===== UI =====
 st.set_page_config(page_title="Card Creator", layout="centered")
 
@@ -185,7 +207,11 @@ def create_card():
         else:
             font_val = fit_text(draw, value, max_text_width, int(height*0.05))
 
-        draw.text((value_x,y), value, fill="black", font=font_val)
+        # wrap text if too long
+        lines = wrap_text(draw, value, font_val, max_text_width)
+
+        for j, line in enumerate(lines[:2]):  # limit max 2 lines to keep layout clean
+            draw.text((value_x, y + j*int(line_h*0.6)), line, fill="black", font=font_val)
 
     # Footer
     draw.rectangle((0,height-footer_h,width,height), fill=color)
