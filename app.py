@@ -3,6 +3,7 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import io
 import math
+import os
 
 # ===== CONFIG =====
 COMPANY_NAME = "Triac Composites Co., LTD"
@@ -12,12 +13,22 @@ COMPANY_ADDRESS = "Factory 4, Depot Saigon, No9, Nguyen Van Tao, Hiep Phuoc comm
 def mm_to_px(mm):
     return int(mm * 3.78)
 
+# 🔥 SAFE FONT LOADER (KHÔNG BAO GIỜ CRASH)
 def get_font(size, bold=False):
-    try:
-        path = "assets/fonts/NotoSans-Bold.ttf" if bold else "assets/fonts/NotoSans-Regular.ttf"
-        return ImageFont.truetype(path, size)
-    except:
-        return ImageFont.truetype("arial.ttf", size)
+    font_paths = [
+        "assets/fonts/NotoSans-Bold.ttf" if bold else "assets/fonts/NotoSans-Regular.ttf",
+        "./assets/fonts/NotoSans-Bold.ttf" if bold else "./assets/fonts/NotoSans-Regular.ttf"
+    ]
+
+    for path in font_paths:
+        try:
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size)
+        except:
+            continue
+
+    # fallback cuối cùng (không crash nhưng có thể lỗi tiếng Việt)
+    return ImageFont.load_default()
 
 def wrap_text(draw, text, font, max_w):
     words = text.split()
@@ -100,14 +111,14 @@ def create_card():
     except:
         pass
 
-    font_header = get_font(int(header_h*0.5), True)
-
     # auto fit company name
-    while True:
+    font_size = int(header_h*0.5)
+    while font_size > 10:
+        font_header = get_font(font_size, True)
         bbox = draw.textbbox((0,0), COMPANY_NAME, font=font_header)
         if bbox[2] <= width - logo_w - 20:
             break
-        font_header = get_font(font_header.size - 1, True)
+        font_size -= 1
 
     text_y = (header_h - (bbox[3]-bbox[1]))//2
     draw.text((logo_w + 10, text_y), COMPANY_NAME, fill="white", font=font_header)
@@ -121,7 +132,6 @@ def create_card():
 
         if photo:
             img = Image.open(photo).convert("RGB")
-
             frame_w = int(width * 0.5)
             frame_h = photo_h
 
