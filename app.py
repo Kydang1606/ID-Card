@@ -5,15 +5,15 @@ import io
 import math
 import os
 
-# ===== CONFIG =====
+# ================= CONFIG =================
 COMPANY_NAME = "Triac Composites Co., LTD"
 COMPANY_ADDRESS = "Factory 4, Depot Saigon, No9, Nguyen Van Tao, Hiep Phuoc commune, HCMC"
 
-# ===== HELPER =====
+# ================= HELPER =================
 def mm_to_px(mm):
     return int(mm * 3.78)
 
-# 🔥 SAFE FONT LOADER (KHÔNG BAO GIỜ CRASH)
+# ===== SAFE FONT LOADER (NO CRASH) =====
 def get_font(size, bold=False):
     font_paths = [
         "assets/fonts/NotoSans-Bold.ttf" if bold else "assets/fonts/NotoSans-Regular.ttf",
@@ -27,9 +27,9 @@ def get_font(size, bold=False):
         except:
             continue
 
-    # fallback cuối cùng (không crash nhưng có thể lỗi tiếng Việt)
     return ImageFont.load_default()
 
+# ===== TEXT WRAP =====
 def wrap_text(draw, text, font, max_w):
     words = text.split()
     lines, current = [], ""
@@ -50,6 +50,7 @@ def wrap_text(draw, text, font, max_w):
 
     return lines
 
+# ===== FIT TEXT =====
 def fit_and_wrap(draw, text, max_w, max_h, max_size, bold=False):
     for size in range(max_size, 12, -1):
         font = get_font(size, bold)
@@ -65,7 +66,7 @@ def fit_and_wrap(draw, text, max_w, max_h, max_size, bold=False):
     lines = wrap_text(draw, text, font, max_w)
     return font, lines[:2], int(12*1.2)
 
-# ===== UI =====
+# ================= UI =================
 st.set_page_config(page_title="Card Creator", layout="centered")
 st.title("🎫 Card Creator")
 
@@ -84,7 +85,7 @@ color = (200,0,0) if team == "Worker" else (0,102,153)
 def t(en, vi):
     return en if lang == "English" else vi
 
-# ===== CREATE CARD =====
+# ================= CARD =================
 def create_card():
     is_vertical = orientation == "Dọc"
 
@@ -111,8 +112,10 @@ def create_card():
     except:
         pass
 
-    # auto fit company name
-    font_size = int(header_h*0.5)
+    # COMPANY NAME AUTO FIT
+    font_size = int(header_h * 0.5)
+    font_header = get_font(font_size, True)
+
     while font_size > 10:
         font_header = get_font(font_size, True)
         bbox = draw.textbbox((0,0), COMPANY_NAME, font=font_header)
@@ -133,11 +136,10 @@ def create_card():
         if photo:
             img = Image.open(photo).convert("RGB")
             frame_w = int(width * 0.5)
-            frame_h = photo_h
+            img = img.resize((frame_w, photo_h))
 
-            img = img.resize((frame_w, frame_h))
-            mask = Image.new("L", (frame_w, frame_h), 0)
-            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), 20, fill=255)
+            mask = Image.new("L", (frame_w, photo_h), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,photo_h), 20, fill=255)
 
             img_x = (width - frame_w)//2
             card.paste(img, (img_x, content_top), mask)
@@ -167,7 +169,7 @@ def create_card():
         line_h = int(content_h * 0.2)
         text_start_y = content_top + (content_h - line_h*4)//2
 
-    # ===== TEXT =====
+    # ================= TEXT =================
     font_label = get_font(int(height*0.045), True)
 
     data = [
@@ -182,21 +184,41 @@ def create_card():
 
         draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
 
-        if i < 2:
-            max_size = int(height*0.075)
+        # ===== BIG NAME / ID =====
+        if i == 0:
+            max_size = int(height * 0.11)   # NAME BIGGEST
             bold = True
+            limit_h = int(line_h * 1.4)
+        elif i == 1:
+            max_size = int(height * 0.095)  # ID BIG
+            bold = True
+            limit_h = int(line_h * 1.2)
         else:
-            max_size = int(height*0.05)
+            max_size = int(height * 0.05)
             bold = False
+            limit_h = line_h
 
         font_val, lines, lh = fit_and_wrap(
-            draw, value, max_text_width, line_h, max_size, bold
+            draw,
+            value,
+            max_text_width,
+            limit_h,
+            max_size,
+            bold
         )
 
         for j, line in enumerate(lines):
-            draw.text((value_x, y + j*lh), line, fill="black", font=font_val)
 
-    # ===== FOOTER =====
+            # center NAME
+            if i == 0:
+                w = draw.textbbox((0,0), line, font=font_val)[2]
+                x = (width - w)//2
+            else:
+                x = value_x
+
+            draw.text((x, y + j*lh), line, fill="black", font=font_val)
+
+    # ================= FOOTER =================
     draw.rectangle((0,height-footer_h,width,height), fill=color)
 
     font_footer, lines, lh = fit_and_wrap(
@@ -212,7 +234,7 @@ def create_card():
 
     return card
 
-# ===== CREATE A4 =====
+# ================= A4 =================
 def create_a4(cards):
     a4_w = mm_to_px(210)
     a4_h = mm_to_px(297)
@@ -242,7 +264,7 @@ def create_a4(cards):
 
     return page
 
-# ===== ACTION =====
+# ================= RUN =================
 qty = st.number_input("Number of cards", 1, 20, 1)
 
 if st.button("Create Card"):
