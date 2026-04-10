@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import io
@@ -14,8 +15,8 @@ def mm_to_px(mm):
 def get_font(size, bold=False):
     try:
         if bold:
-            return ImageFont.truetype("arialbd.ttf", size)
-        return ImageFont.truetype("arial.ttf", size)
+            return ImageFont.truetype("assets/fonts/NotoSans-Bold.ttf", size)
+        return ImageFont.truetype("assets/fonts/NotoSans-Regular.ttf", size)
     except:
         return ImageFont.load_default()
 
@@ -35,10 +36,10 @@ st.title("🎫 Card Creator")
 lang = st.selectbox("Language / Ngôn ngữ", ["English", "Tiếng Việt"])
 orientation = st.selectbox("Orientation", ["Dọc", "Ngang"])
 
-name = st.text_input("Name / Tên")
-emp_id = st.text_input("ID")
+name = st.text_input("Name / Tên").strip()
+emp_id = st.text_input("ID").strip()
 team = st.selectbox("Team", ["Worker", "Offices"])
-level = st.text_input("Level / Chức vụ")
+level = st.text_input("Level / Chức vụ").strip()
 
 photo = st.file_uploader("Upload Photo", type=["jpg","png"])
 
@@ -58,20 +59,18 @@ def create_card():
     card = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(card)
 
-    # ===== LAYOUT (FIX CHUẨN KHÔNG NGẮN) =====
+    # Layout
     header_h = int(height * 0.15)
     footer_h = int(height * 0.08)
-    photo_h  = int(height * 0.35)
     padding  = int(height * 0.03)
 
-    # ===== HEADER =====
     draw.rectangle((0,0,width,header_h), fill=color)
 
-    # LOGO
+    # Logo + Title
     logo_w = 0
     try:
         logo = Image.open("logo.png").convert("RGBA")
-        logo.thumbnail((int(width*0.14), header_h-10))
+        logo.thumbnail((int(width*0.12), header_h-10))
         card.paste(logo, (10,(header_h-logo.height)//2), logo)
         logo_w = logo.width
     except:
@@ -80,46 +79,93 @@ def create_card():
     font_header = get_font(int(header_h*0.4), True)
     draw.text((logo_w+20, header_h//3), COMPANY_NAME, fill="white", font=font_header)
 
-    # ===== PHOTO =====
-    if photo:
-        img = Image.open(photo).convert("RGB")
+    # Content area
+    content_top = header_h + padding
+    content_bottom = height - footer_h - padding
 
-        frame_w = int(width * 0.45)
-        frame_h = photo_h
+    # ===== DỌC =====
+    if is_vertical:
+        photo_h = int((content_bottom - content_top) * 0.45)
 
-        img_ratio = img.width / img.height
-        frame_ratio = frame_w / frame_h
+        if photo:
+            img = Image.open(photo).convert("RGB")
 
-        if img_ratio > frame_ratio:
-            new_h = frame_h
-            new_w = int(img_ratio * new_h)
-        else:
-            new_w = frame_w
-            new_h = int(new_w / img_ratio)
+            frame_w = int(width * 0.5)
+            frame_h = photo_h
 
-        img = img.resize((new_w, new_h))
+            img_ratio = img.width / img.height
+            frame_ratio = frame_w / frame_h
 
-        left = (new_w - frame_w)//2
-        top = (new_h - frame_h)//2
-        img = img.crop((left, top, left+frame_w, top+frame_h))
+            if img_ratio > frame_ratio:
+                new_h = frame_h
+                new_w = int(img_ratio * new_h)
+            else:
+                new_w = frame_w
+                new_h = int(new_w / img_ratio)
 
-        mask = Image.new("L", (frame_w, frame_h), 0)
-        mask_draw = ImageDraw.Draw(mask)
-        mask_draw.rounded_rectangle((0,0,frame_w,frame_h), radius=20, fill=255)
+            img = img.resize((new_w, new_h))
 
-        img_x = (width - frame_w)//2
-        img_y = header_h + padding
+            left = (new_w - frame_w)//2
+            top = (new_h - frame_h)//2
+            img = img.crop((left, top, left+frame_w, top+frame_h))
 
-        card.paste(img, (img_x,img_y), mask)
+            mask = Image.new("L", (frame_w, frame_h), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), radius=20, fill=255)
+
+            img_x = (width - frame_w)//2
+            img_y = content_top
+
+            card.paste(img, (img_x,img_y), mask)
+
+        text_start_y = content_top + photo_h + padding
+
+        label_x = int(width * 0.08)
+        value_x = int(width * 0.38)
+        max_text_width = width - value_x - padding
+        line_h = int(height * 0.085)
+
+    # ===== NGANG =====
+    else:
+        content_h = content_bottom - content_top
+
+        photo_w = int(width * 0.32)
+        text_area_x = photo_w + padding*2
+
+        if photo:
+            img = Image.open(photo).convert("RGB")
+
+            frame_w = photo_w
+            frame_h = content_h
+
+            img_ratio = img.width / img.height
+            frame_ratio = frame_w / frame_h
+
+            if img_ratio > frame_ratio:
+                new_h = frame_h
+                new_w = int(img_ratio * new_h)
+            else:
+                new_w = frame_w
+                new_h = int(new_w / img_ratio)
+
+            img = img.resize((new_w, new_h))
+
+            left = (new_w - frame_w)//2
+            top = (new_h - frame_h)//2
+            img = img.crop((left, top, left+frame_w, top+frame_h))
+
+            mask = Image.new("L", (frame_w, frame_h), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0,0,frame_w,frame_h), radius=20, fill=255)
+
+            card.paste(img, (padding, content_top), mask)
+
+        label_x = text_area_x
+        value_x = text_area_x + int(width * 0.12)
+        max_text_width = width - value_x - padding
+
+        line_h = int(content_h * 0.2)
+        text_start_y = content_top + (content_h - line_h*4)//2
 
     # ===== TEXT =====
-    text_start_y = header_h + photo_h + padding*2
-
-    label_x = int(width * 0.1)
-    value_x = int(width * 0.35)
-
-    line_h = int(height * 0.085)
-
     font_label = get_font(int(height*0.045), True)
 
     data = [
@@ -134,10 +180,14 @@ def create_card():
 
         draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
 
-        font_val = fit_text(draw, value, width-value_x-10, int(height*0.05))
+        if i < 2:
+            font_val = fit_text(draw, value, max_text_width, int(height*0.065), bold=True)
+        else:
+            font_val = fit_text(draw, value, max_text_width, int(height*0.05))
+
         draw.text((value_x,y), value, fill="black", font=font_val)
 
-    # ===== FOOTER =====
+    # Footer
     draw.rectangle((0,height-footer_h,width,height), fill=color)
 
     font_footer = fit_text(draw, COMPANY_ADDRESS, width-20, int(footer_h*0.4))
@@ -145,7 +195,7 @@ def create_card():
 
     return card
 
-# ===== CREATE MULTIPLE CARDS (A4) =====
+# ===== CREATE A4 =====
 def create_a4(cards):
     a4_w = mm_to_px(210)
     a4_h = mm_to_px(297)
@@ -182,10 +232,7 @@ qty = st.number_input("Number of cards", 1, 20, 1)
 if st.button("Create Card"):
     cards = [create_card() for _ in range(qty)]
 
-    if qty == 1:
-        img = cards[0]
-    else:
-        img = create_a4(cards)
+    img = cards[0] if qty == 1 else create_a4(cards)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
