@@ -200,6 +200,42 @@ def create_card():
     for i,(label,value) in enumerate(data):
         y = text_start_y + i*line_h
 
+        # LABEL
+        draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
+
+        # VALUE FONT SIZE
+        if i < 2:
+            base_size = int(height*0.065)
+            is_bold = True
+        else:
+            base_size = int(height*0.05)
+            is_bold = False
+
+        # AUTO FIT + WRAP + HEIGHT CONTROL
+        for size in range(base_size, 10, -1):
+            font_val = get_font(size, is_bold)
+
+            lines = wrap_text(draw, value, font_val, max_text_width)
+
+            # giới hạn tối đa 2 dòng
+            if len(lines) > 2:
+                continue
+
+            total_h = len(lines) * int(line_h*0.6)
+
+            # kiểm tra không tràn xuống dòng dưới
+            if total_h <= line_h:
+                break
+
+    # DRAW TEXT
+    for j, line in enumerate(lines[:2]):
+        draw.text(
+            (value_x, y + j*int(line_h*0.6)),
+            line,
+            fill="black",
+            font=font_val
+        )
+
         draw.text((label_x,y), f"{label}:", fill="black", font=font_label)
 
         if i < 2:
