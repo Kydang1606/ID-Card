@@ -1,5 +1,7 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
+import base64
+from PIL import Image
+import io
 
 st.set_page_config(layout="centered")
 
@@ -11,161 +13,23 @@ ADDRESS = """UniDepot, Factory No 4, Nguyen Van Tao St,
 Hiep Phuoc Commune,
 HCMC, 700000, Vietnam"""
 
-LOGO_PATH = "logo.png"
+# =========================
+# LOAD IMAGE → BASE64
+# =========================
+def img_to_base64(img):
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
-# =========================
-# LOAD FONT (VIETNAMESE OK)
-# =========================
-def load_font(size, bold=False):
+def file_to_base64(path):
     try:
-        if bold:
-            return ImageFont.truetype("Roboto-Bold.ttf", size)
-        return ImageFont.truetype("Roboto-Regular.ttf", size)
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
     except:
-        return ImageFont.load_default()
+        return ""
 
 # =========================
-# TEXT FIXED SIZE (KHÔNG LOẠN SIZE)
-# =========================
-def draw_text_fixed(draw, text, box, font_size, bold=False):
-    x, y, w, h = box
-    font = load_font(font_size, bold)
-
-    words = text.split()
-    lines = []
-    current = ""
-
-    for word in words:
-        test = current + " " + word if current else word
-        bbox = draw.textbbox((0, 0), test, font=font)
-
-        if bbox[2] <= w:
-            current = test
-        else:
-            lines.append(current)
-            current = word
-
-    if current:
-        lines.append(current)
-
-    # max 2 lines
-    if len(lines) > 2:
-        lines = lines[:2]
-        lines[-1] += "..."
-
-    line_h = draw.textbbox((0, 0), "A", font=font)[3] + 5
-    total_h = len(lines) * line_h
-
-    yy = y + (h - total_h) // 2
-
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        xx = x + (w - bbox[2]) // 2
-        draw.text((xx, yy), line, fill="black", font=font)
-        yy += line_h
-
-# =========================
-# MULTILINE (ADDRESS)
-# =========================
-def draw_multiline(draw, text, box, size):
-    x, y, w, h = box
-    font = load_font(size)
-    lines = text.split("\n")
-
-    line_h = draw.textbbox((0, 0), "A", font=font)[3] + 4
-    total_h = len(lines) * line_h
-
-    yy = y + (h - total_h) // 2
-
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        xx = x + (w - bbox[2]) // 2
-        draw.text((xx, yy), line, fill="white", font=font)
-        yy += line_h
-
-# =========================
-# IMAGE FIT (KHÔNG MÉO)
-# =========================
-def fit_image(img, box):
-    target_w, target_h = box
-    ratio = img.width / img.height
-    box_ratio = target_w / target_h
-
-    if ratio > box_ratio:
-        new_h = target_h
-        new_w = int(new_h * ratio)
-    else:
-        new_w = target_w
-        new_h = int(new_w / ratio)
-
-    img = img.resize((new_w, new_h))
-
-    left = (new_w - target_w) // 2
-    top = (new_h - target_h) // 2
-
-    return img.crop((left, top, left + target_w, top + target_h))
-
-# =========================
-# CREATE CARD
-# =========================
-def create_card(name, id_, team, level, photo):
-
-    if team == "Worker":
-        W, H = 1000, 600
-        color = (200, 0, 0)
-        layout = "horizontal"
-    else:
-        W, H = 600, 1000
-        color = (0, 102, 153)
-        layout = "vertical"
-
-    img = Image.new("RGB", (W, H), "white")
-    draw = ImageDraw.Draw(img)
-
-    # HEADER
-    draw.rectangle((0, 0, W, 100), fill=color)
-
-    # LOGO
-    try:
-        logo = Image.open(LOGO_PATH).convert("RGBA")
-        logo = logo.resize((80, 80))
-        img.paste(logo, (10, 10), logo)
-    except:
-        pass
-
-    # COMPANY NAME
-    draw_text_fixed(draw, COMPANY, (W // 3, 0, int(W * 2 / 3) - 20, 100), 28, True)
-
-    # FOOTER
-    draw.rectangle((0, H - 100, W, H), fill=color)
-    draw_multiline(draw, ADDRESS, (0, H - 100, W, 100), 16)
-
-    if layout == "horizontal":
-        photo_box = (int(W * 0.33), int(H * 0.6))
-        photo = fit_image(photo, photo_box)
-        img.paste(photo, (20, 120))
-
-        # TEXT RIGHT
-        draw_text_fixed(draw, name, (350, 150, 600, 80), 36, True)
-        draw_text_fixed(draw, f"ID: {id_}", (350, 230, 600, 70), 28, True)
-        draw_text_fixed(draw, f"Level: {level}", (350, 320, 600, 60), 20)
-        draw_text_fixed(draw, f"Team: {team}", (350, 380, 600, 60), 20)
-
-    else:
-        photo_box = (int(W * 0.6), int(H * 0.33))
-        photo = fit_image(photo, photo_box)
-        img.paste(photo, (int(W * 0.2), 120))
-
-        # TEXT BELOW
-        draw_text_fixed(draw, name, (50, 450, W - 100, 80), 36, True)
-        draw_text_fixed(draw, f"ID: {id_}", (50, 530, W - 100, 70), 28, True)
-        draw_text_fixed(draw, f"Level: {level}", (50, 620, W - 100, 60), 20)
-        draw_text_fixed(draw, f"Team: {team}", (50, 680, W - 100, 60), 20)
-
-    return img
-
-# =========================
-# UI
+# UI INPUT
 # =========================
 st.title("ID Card - TRIAC")
 
@@ -175,9 +39,233 @@ team = st.selectbox("Team", ["Worker", "Office"])
 level = st.text_input("Level")
 photo = st.file_uploader("Upload Photo", type=["jpg", "png"])
 
-if st.button("Generate"):
-    if photo:
-        img = Image.open(photo)
-        card = create_card(name, id_, team, level, img)
+logo_base64 = file_to_base64("logo.png")
 
-        st.image(card, width=500)
+# =========================
+# GENERATE CARD (HTML)
+# =========================
+if st.button("Generate") and photo:
+
+    img = Image.open(photo)
+    photo_base64 = img_to_base64(img)
+
+    if team == "Worker":
+        # CARD NGANG
+        html = f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+        .card {{
+            width: 900px;
+            height: 520px;
+            border-radius: 16px;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }}
+
+        .header {{
+            background: #c80000;
+            height: 90px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }}
+
+        .logo {{
+            height: 60px;
+        }}
+
+        .company {{
+            color: white;
+            font-size: 26px;
+            font-weight: 700;
+            margin-left: 20px;
+        }}
+
+        .body {{
+            display: flex;
+            height: 340px;
+        }}
+
+        .photo {{
+            width: 35%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .photo img {{
+            width: 90%;
+            height: 90%;
+            object-fit: cover;
+            border-radius: 12px;
+        }}
+
+        .info {{
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px;
+        }}
+
+        .name {{
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }}
+
+        .id {{
+            font-size: 26px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }}
+
+        .small {{
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+
+        .footer {{
+            background: #c80000;
+            height: 90px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 14px;
+            padding: 10px;
+        }}
+        </style>
+
+        <div class="card">
+            <div class="header">
+                <img class="logo" src="data:image/png;base64,{logo_base64}">
+                <div class="company">{COMPANY}</div>
+            </div>
+
+            <div class="body">
+                <div class="photo">
+                    <img src="data:image/png;base64,{photo_base64}">
+                </div>
+
+                <div class="info">
+                    <div class="name">{name}</div>
+                    <div class="id">ID: {id_}</div>
+                    <div class="small">Level: {level}</div>
+                    <div class="small">Team: {team}</div>
+                </div>
+            </div>
+
+            <div class="footer">{ADDRESS}</div>
+        </div>
+        """
+
+    else:
+        # CARD DỌC
+        html = f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+        .card {{
+            width: 520px;
+            height: 900px;
+            border-radius: 16px;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }}
+
+        .header {{
+            background: #006699;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }}
+
+        .logo {{
+            height: 70px;
+        }}
+
+        .company {{
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            margin-left: 20px;
+        }}
+
+        .photo {{
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .photo img {{
+            width: 70%;
+            height: 90%;
+            object-fit: cover;
+            border-radius: 12px;
+        }}
+
+        .info {{
+            padding: 20px;
+            text-align: center;
+        }}
+
+        .name {{
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }}
+
+        .id {{
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }}
+
+        .small {{
+            font-size: 18px;
+            margin-bottom: 5px;
+        }}
+
+        .footer {{
+            background: #006699;
+            height: 100px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 14px;
+            padding: 10px;
+        }}
+        </style>
+
+        <div class="card">
+            <div class="header">
+                <img class="logo" src="data:image/png;base64,{logo_base64}">
+                <div class="company">{COMPANY}</div>
+            </div>
+
+            <div class="photo">
+                <img src="data:image/png;base64,{photo_base64}">
+            </div>
+
+            <div class="info">
+                <div class="name">{name}</div>
+                <div class="id">ID: {id_}</div>
+                <div class="small">Level: {level}</div>
+                <div class="small">Team: {team}</div>
+            </div>
+
+            <div class="footer">{ADDRESS}</div>
+        </div>
+        """
+
+    st.markdown(html, unsafe_allow_html=True)
