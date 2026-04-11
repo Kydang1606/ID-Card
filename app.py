@@ -14,7 +14,7 @@ Hiep Phuoc Commune,
 HCMC, 700000, Vietnam"""
 
 # =========================
-# LOAD IMAGE → BASE64
+# IMAGE → BASE64
 # =========================
 def img_to_base64(img):
     buf = io.BytesIO()
@@ -29,9 +29,9 @@ def file_to_base64(path):
         return ""
 
 # =========================
-# UI INPUT
+# UI
 # =========================
-st.title("ID Card - TRIAC")
+st.title("TRIAC ID CARD")
 
 name = st.text_input("Name")
 id_ = st.text_input("ID")
@@ -42,105 +42,121 @@ photo = st.file_uploader("Upload Photo", type=["jpg", "png"])
 logo_base64 = file_to_base64("logo.png")
 
 # =========================
-# GENERATE CARD (HTML)
+# GENERATE
 # =========================
 if st.button("Generate") and photo:
 
     img = Image.open(photo)
     photo_base64 = img_to_base64(img)
 
+    # =========================
+    # MATERIAL STYLE COLORS
+    # =========================
     if team == "Worker":
-        # CARD NGANG
-        html = f"""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        primary = "#D32F2F"   # đỏ material
+        layout = "horizontal"
+    else:
+        primary = "#1976D2"   # xanh material
+        layout = "vertical"
 
-        .card {{
-            width: 900px;
-            height: 520px;
-            border-radius: 16px;
-            overflow: hidden;
-            font-family: 'Roboto', sans-serif;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }}
+    # =========================
+    # HTML + CSS
+    # =========================
+    html = f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
-        .header {{
-            background: #c80000;
-            height: 90px;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-        }}
+    .card {{
+        font-family: 'Roboto', sans-serif;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        overflow: hidden;
+        margin-top: 20px;
+    }}
 
-        .logo {{
-            height: 60px;
-        }}
+    .header {{
+        background: {primary};
+        color: white;
+        display: flex;
+        align-items: center;
+        padding: 16px;
+    }}
 
-        .company {{
-            color: white;
-            font-size: 26px;
-            font-weight: 700;
-            margin-left: 20px;
-        }}
+    .logo {{
+        height: 50px;
+    }}
+
+    .company {{
+        font-size: 22px;
+        font-weight: 600;
+        margin-left: 16px;
+    }}
+
+    .footer {{
+        background: {primary};
+        color: white;
+        text-align: center;
+        padding: 12px;
+        font-size: 13px;
+        line-height: 1.4;
+    }}
+
+    .name {{
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }}
+
+    .id {{
+        font-size: 20px;
+        font-weight: 500;
+        margin-bottom: 12px;
+        color: #555;
+    }}
+
+    .small {{
+        font-size: 16px;
+        color: #444;
+    }}
+
+    .photo img {{
+        object-fit: cover;
+        border-radius: 12px;
+    }}
+    """
+
+    # =========================
+    # WORKER (NGANG)
+    # =========================
+    if layout == "horizontal":
+        html += f"""
+        .card {{ width: 850px; }}
 
         .body {{
             display: flex;
-            height: 340px;
+            padding: 20px;
         }}
 
         .photo {{
             width: 35%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }}
 
         .photo img {{
-            width: 90%;
-            height: 90%;
-            object-fit: cover;
-            border-radius: 12px;
+            width: 100%;
+            height: 260px;
         }}
 
         .info {{
             width: 65%;
+            padding-left: 20px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 20px;
         }}
+        """
 
-        .name {{
-            font-size: 34px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }}
-
-        .id {{
-            font-size: 26px;
-            font-weight: 500;
-            margin-bottom: 20px;
-        }}
-
-        .small {{
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 5px;
-        }}
-
-        .footer {{
-            background: #c80000;
-            height: 90px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 14px;
-            padding: 10px;
-        }}
-        </style>
-
+        html += f"""
         <div class="card">
             <div class="header">
                 <img class="logo" src="data:image/png;base64,{logo_base64}">
@@ -164,89 +180,30 @@ if st.button("Generate") and photo:
         </div>
         """
 
+    # =========================
+    # OFFICE (DỌC)
+    # =========================
     else:
-        # CARD DỌC
-        html = f"""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
-        .card {{
-            width: 520px;
-            height: 900px;
-            border-radius: 16px;
-            overflow: hidden;
-            font-family: 'Roboto', sans-serif;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }}
-
-        .header {{
-            background: #006699;
-            height: 100px;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-        }}
-
-        .logo {{
-            height: 70px;
-        }}
-
-        .company {{
-            color: white;
-            font-size: 24px;
-            font-weight: 700;
-            margin-left: 20px;
-        }}
+        html += f"""
+        .card {{ width: 500px; }}
 
         .photo {{
-            height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            text-align: center;
+            padding: 20px;
         }}
 
         .photo img {{
             width: 70%;
-            height: 90%;
-            object-fit: cover;
-            border-radius: 12px;
+            height: 260px;
         }}
 
         .info {{
-            padding: 20px;
             text-align: center;
+            padding: 10px 20px 20px;
         }}
+        """
 
-        .name {{
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }}
-
-        .id {{
-            font-size: 24px;
-            font-weight: 500;
-            margin-bottom: 20px;
-        }}
-
-        .small {{
-            font-size: 18px;
-            margin-bottom: 5px;
-        }}
-
-        .footer {{
-            background: #006699;
-            height: 100px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 14px;
-            padding: 10px;
-        }}
-        </style>
-
+        html += f"""
         <div class="card">
             <div class="header">
                 <img class="logo" src="data:image/png;base64,{logo_base64}">
@@ -267,5 +224,7 @@ if st.button("Generate") and photo:
             <div class="footer">{ADDRESS}</div>
         </div>
         """
+
+    html += "</style>"
 
     st.markdown(html, unsafe_allow_html=True)
