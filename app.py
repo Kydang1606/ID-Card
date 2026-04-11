@@ -27,36 +27,35 @@ def load_font(size, bold=False):
 # =========================
 # AUTO TEXT (WRAP + FIT)
 # =========================
-def draw_text_block(draw, text, box, base_size, bold=False):
+def draw_text_fixed(draw, text, box, font_size, bold=False):
     x, y, w, h = box
-    size = base_size
+    
+    font = load_font(font_size, bold)
 
-    while size > 10:
-        font = load_font(size, bold)
-        words = text.split()
-        lines = []
-        current = ""
+    words = text.split()
+    lines = []
+    current = ""
 
-        for word in words:
-            test = current + " " + word if current else word
-            bbox = draw.textbbox((0,0), test, font=font)
+    for word in words:
+        test = current + " " + word if current else word
+        bbox = draw.textbbox((0,0), test, font=font)
 
-            if bbox[2] <= w:
-                current = test
-            else:
-                lines.append(current)
-                current = word
-
-        if current:
+        if bbox[2] <= w:
+            current = test
+        else:
             lines.append(current)
+            current = word
 
-        line_h = draw.textbbox((0,0), "A", font=font)[3] + 5
-        total_h = len(lines) * line_h
+    if current:
+        lines.append(current)
 
-        if len(lines) <= 2 and total_h <= h:
-            break
+    # giới hạn 2 dòng
+    if len(lines) > 2:
+        lines = lines[:2]
+        lines[-1] += "..."
 
-        size -= 2
+    line_h = draw.textbbox((0,0), "A", font=font)[3] + 5
+    total_h = len(lines) * line_h
 
     yy = y + (h - total_h)//2
 
