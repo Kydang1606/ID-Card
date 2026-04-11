@@ -2,30 +2,17 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 # =========================
-# FONT LOADER (PRO DESIGN SAFE)
+# FONT LOADER (FIX UNICODE + STABLE)
 # =========================
 def get_font(size, bold=False):
-    """
-    Font chuẩn design (Roboto/DejaVu fallback)
-    chạy mọi môi trường (Windows/Linux/Cloud)
-    """
-
     font_list = [
-        # Linux (ổn định nhất)
+        "assets/fonts/NotoSans-Bold.ttf" if bold else "assets/fonts/NotoSans-Regular.ttf",
+
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
         else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 
-        # Ubuntu alternative
-        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf" if bold
-        else "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-
-        # Windows
         "C:/Windows/Fonts/arialbd.ttf" if bold
         else "C:/Windows/Fonts/arial.ttf",
-
-        # Roboto (nếu có cài)
-        "/usr/share/fonts/truetype/roboto/Roboto-Bold.ttf" if bold
-        else "/usr/share/fonts/truetype/roboto/Roboto-Regular.ttf",
     ]
 
     for f in font_list:
@@ -39,53 +26,61 @@ def get_font(size, bold=False):
 
 
 # =========================
-# TEXT WRAP + FIT
+# TEXT FIT + WRAP + HEIGHT CONTROL (FIX CORE)
 # =========================
-def fit_text(draw, text, max_width, max_size, line_h, bold=False):
-    size = max_size
-
-    while size > 10:
+def fit_text_block(draw, text, max_width, max_height, max_size, bold=False):
+    for size in range(max_size, 10, -2):
         font = get_font(size, bold)
+
         words = text.split()
         lines = []
         line = ""
 
         for w in words:
             test = (line + " " + w).strip()
-            if draw.textbbox((0, 0), test, font=font)[2] <= max_width:
+            w_box = draw.textbbox((0, 0), test, font=font)[2]
+
+            if w_box <= max_width:
                 line = test
             else:
-                lines.append(line)
+                if line:
+                    lines.append(line)
                 line = w
 
         if line:
             lines.append(line)
 
-        if len(lines) * line_h <= line_h * 3:
-            return font, lines, line_h
+        # giới hạn max 2 dòng
+        if len(lines) > 2:
+            continue
 
-        size -= 2
+        line_height = int(size * 1.2)
+        total_height = len(lines) * line_height
 
-    return get_font(12, bold), [text], line_h
+        if total_height <= max_height:
+            return font, lines, line_height
+
+    # fallback
+    font = get_font(14, bold)
+    return font, [text[:30] + "..."], int(14 * 1.2)
 
 
 # =========================
 # CREATE ID CARD PRO
 # =========================
 def create_card():
-    # ===== CARD SIZE (PVC STANDARD) =====
-    width, height = 1011, 638  # ~ CR80 ratio upscale
+    width, height = 1011, 638
 
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
 
-    # ===== MOCK DATA =====
-    name = "NGUYEN VAN A"
-    emp_id = "EMP ID: 2026001"
+    # ===== DATA =====
+    name = "ĐẶNG VĨNH KỲ"
+    emp_id = "2026001"
     team = "Engineering Department"
     level = "Senior Technician"
 
-    # ===== SAFE MARGIN (PVC PRINT SAFE) =====
+    # ===== MARGIN =====
     margin_x = 60
     margin_y = 50
 
@@ -93,7 +88,7 @@ def create_card():
     label_x = margin_x
     value_x = 320
     start_y = 180
-    line_h = 70
+    line_h = 90   # tăng để tránh đè
 
     max_text_width = width - value_x - margin_x
 
@@ -104,7 +99,6 @@ def create_card():
     w = draw.textbbox((0, 0), title, font=header_font)[2]
     draw.text(((width - w)//2, 60), title, fill="black", font=header_font)
 
-    # underline
     draw.line((margin_x, 130, width - margin_x, 130), fill="black", width=2)
 
     # ===== LABEL FONT =====
@@ -117,41 +111,49 @@ def create_card():
         ("POSITION", level),
     ]
 
+    # ===== AUTO CENTER BLOCK =====
+    total_block_height = line_h * len(data)
+    start_y = (height - total_block_height) // 2 + 40
+
     for i, (label, value) in enumerate(data):
         y = start_y + i * line_h
 
         # LABEL
         draw.text((label_x, y), label, fill="black", font=label_font)
 
-        # ===== SIZE CONTROL =====
-        if i == 0:   # NAME
+        # SIZE RULE
+        if i == 0:
             max_size = 72
             bold = True
-            line_h2 = 50
+            max_h = line_h
 
-        elif i == 1:  # ID
-            max_size = 58
+        elif i == 1:
+            max_size = 60
             bold = True
-            line_h2 = 45
+            max_h = line_h * 0.9
 
         else:
             max_size = 42
             bold = False
-            line_h2 = 40
+            max_h = line_h * 0.9
 
-        font_val, lines, lh = fit_text(
+        font_val, lines, lh = fit_text_block(
             draw,
             value,
             max_text_width,
+            max_h,
             max_size,
-            line_h2,
             bold
         )
 
         # DRAW VALUE
         for j, line in enumerate(lines):
-            x = value_x
-            draw.text((x, y + j * lh), line, fill="black", font=font_val)
+            draw.text(
+                (value_x, y + j * lh),
+                line,
+                fill="black",
+                font=font_val
+            )
 
     return img
 
